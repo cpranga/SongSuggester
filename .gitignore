@@ -1,0 +1,5 @@
+#ignores any txt/csv files
+*.[json][csv][txt]
+*.json
+*.csv
+*.txt
