@@ -25,7 +25,12 @@ def parseCredentials():
 			})
 	print(mainParams)
 
-#prints out blanket of json info
+'''
+jrpint
+
+Arg: obj -> requst data type
+Purpose: prints out the requests JSON info to screen
+'''
 def jprint(obj):
 	try:
 		text = json.dumps(obj.json(), sort_keys=True, indent=4)
@@ -33,30 +38,74 @@ def jprint(obj):
 		text = json.dumps(obj, sort_keys=True, indent=4)
 	print(text)
 
+'''
+getUserTopSongs
+
+Purpose: queries the last.fm API to retrieve the users most listened to songs
+'''
 def getUserTopSongs():
 	#change param variables
 	tmpParams={
 		'method' : "user.getTopTracks",
-		'limit' : 50
+		'limit' : 2
 	}
 	request = makeRequest(tmpParams)
-	writejson(request)
+	writejson(request, "toptracks")
 
+'''
+requestErrorCheck
+
+Purpose: checks the status_code of the request to determine if an error occured (status_code >= 400)
+Args: request
+'''
 def requestErrorCheck(request):
 	if request.status_code >= 400:
 		print("Error thrown for API request. Exiting")
 		print(str(request.status_code))
 		exit(0)
 
-def writejson(request):
-	with open('toptracks.json', 'w') as outfile:
-		outtext= request.json()
-		json.dump(outtext, outfile)
-	with open('toptracks_readable.json', 'w') as outfile:
-		outtext= request.json()
-		json.dump(outtext, outfile, sort_keys=True, indent=4)
-		#json.dumps(obj, sort_keys=True, indent=4)
+'''
+writejson
 
+Purpose: writes the json of a request to two files
+	- one file is made to be readable by a human
+	- the other file will have json statements seperated by lines
+Arguments:
+	request:
+		- either a single request
+		- or a list of multiple requests
+	method:
+		- which method did the calling. Determines output file and datatype of request
+'''
+def writejson(request, method):
+	'''
+	Checks which method called
+	- if method is toptracks
+		- open up toptracks files, and print single request to both files
+	- else if method is similarsongs
+		- open up similar songs files
+		- print each json, then print blankline to seperate
+	'''
+	if method == "toptracks":
+		with open('toptracks.json', 'w') as outfile, open('toptracks_readable.json', 'w') as outfile_read:
+			outtext= request.json()
+			json.dump(outtext, outfile)
+			json.dump(outtext, outfile_read, sort_keys=True, indent=4)
+	elif method == "similarsongs":
+		with open('sugtracks.json', 'w') as outfile, open('sugtracks_readable.json', 'w') as outfile_read:
+			for ind in request:
+				outtext= ind.json()
+				json.dump(outtext, outfile)
+				json.dump(outtext, outfile_read, sort_keys=True, indent=4)
+				outfile.write('\n')
+				outfile_read.write('\n')
+
+'''
+parseTopTracks
+
+Purpose: parses the toptracks.json file and creates a set containing a tuple of song name and artist name
+Returns: tuple set of (song name , artist name)
+'''
 def parseTopTracks():
 	#data=""
 	#ToDo: ask user which file to open
@@ -65,15 +114,12 @@ def parseTopTracks():
 	#root is a list
 	root = data["toptracks"]["track"]
 	'''
-	create a empty dict to store the users top tracks
-	dict will store
-		tracks name as the key
-		tracks mbid (identifier) as the value
+	creates an empty set to store tuples in
 	'''
 	toptracks = set()
 	#iterate over every track block in root list
 	for track in root:
-		#store information inside of dict
+		#store information inside of set
 		toptracks.add((track["name"], track["artist"]["name"]))
 	return toptracks
 
@@ -91,31 +137,16 @@ def getSimilarSongs(tracklist):
 		print out request
 		debugging: exit after single request
 	'''
-
+	requestsList= []
 	sugTracks={}
-	with open('sugtracks.json', 'w') as outfile:
-		for line in tracklist:
-			tmpParams['track'], tmpParams['artist'] = line
-			#print(tmpParams['track'], tmpParams['artist'])
-			#tmpParams['artist'] = artist
-			#tmpParams['track'] = track
-			request =makeRequest(tmpParams)
-
-			#block of code writes out request for debugging purposes
-			'''
-			with open('sugtracks.json', 'w') as outfile:
-				outtext= request.json()
-				json.dump(outtext, outfile)
-			with open('sugtracks_readable.json', 'w') as outfile:
-				outtext= request.json()
-				json.dump(outtext, outfile, sort_keys=True, indent=4)
-				#json.dumps(obj, sort_keys=True, indent=4)
-			jprint(request)
-			'''
-			outtext = request.json()
-			json.dump(outtext, outfile)
-			#json.dump(outtext, outfile_read, sort_keys=True, indent=4)
-			outfile.write("\n")
+	for line in tracklist:
+		tmpParams['track'], tmpParams['artist'] = line
+		#print(tmpParams['track'], tmpParams['artist'])
+		#tmpParams['artist'] = artist
+		#tmpParams['track'] = track
+		request =makeRequest(tmpParams)
+		requestsList.append(request)
+	writejson(requestsList, "similarsongs")
 
 def parseSimTracks():
 	'''
