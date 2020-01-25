@@ -7,6 +7,7 @@ Output:
 import requests
 import json
 from time import sleep
+from os.path import exists
 
 #default paramaters to be sent with every request to lastfm API
 mainParams= {
@@ -16,6 +17,23 @@ mainParams= {
 
 #functions are defined here
 
+'''
+createCredentials
+
+Purpose: creates credentials file that contains username and api key
+'''
+def createCredentials():
+	with open("credentials.txt", 'w') as outfile:
+		username = input("Username: ")
+		apikey = input("API Key: ")
+		outfile.write(username + " " + apikey)
+	print("Credentials created.")
+
+'''
+parseCredentials
+
+Purpose: reads through a credetials file to load credentials (user id and api key) into the mainParams
+'''
 def parseCredentials():
 	with open("credentials.txt", "r") as infile:
 		line = infile.read().split()
@@ -23,7 +41,6 @@ def parseCredentials():
 			'user': line[0],
 			'api_key': line[1]
 			})
-	print(mainParams)
 
 '''
 jrpint
@@ -47,7 +64,7 @@ def getUserTopSongs():
 	#change param variables
 	tmpParams={
 		'method' : "user.getTopTracks",
-		'limit' : 2
+		'limit' : 30
 	}
 	request = makeRequest(tmpParams)
 	writejson(request, "toptracks")
@@ -123,11 +140,25 @@ def parseTopTracks():
 		toptracks.add((track["name"], track["artist"]["name"]))
 	return toptracks
 
+'''
+getSimilarSongs
+
+Purpose: find similar songs for each track in the tracklist
+Arguments:
+	- tracklist: set of tuples (song name, artist)
+Logic:
+	- define necessary request paramaters
+	- initialize empty containers
+	- iterate over every track in tracklist
+		- make request
+		- append request to container
+	- call writejson with suggested songs container
+'''
 def getSimilarSongs(tracklist):
 	#initialize params dict with values that will not be changing
 	tmpParams={
 		'method' : 'track.getSimilar',
-		'limit' : 20
+		'limit' : 30
 	}
 
 	'''
@@ -139,15 +170,31 @@ def getSimilarSongs(tracklist):
 	'''
 	requestsList= []
 	sugTracks={}
+
 	for line in tracklist:
 		tmpParams['track'], tmpParams['artist'] = line
-		#print(tmpParams['track'], tmpParams['artist'])
-		#tmpParams['artist'] = artist
-		#tmpParams['track'] = track
 		request =makeRequest(tmpParams)
 		requestsList.append(request)
 	writejson(requestsList, "similarsongs")
 
+'''
+parseSimTracks
+
+Purpose: parses the similartracks json file to prepare info to be presented
+Logic:
+	- call parseTopTracks() to return a container of the top tracks
+		- we will be using this container to ensure we do not reccoment a song already in the top tracks
+	- create a dict to keep track of suggested songs and frequency
+		(track name, artist name) : frequency
+	- open the suggested tracks json file
+	- iterate over every line in the file. each line is a different json request info
+		- iterate over every track in the line
+			- find relevent information: track name and artist name
+			- check if already in topTracks
+			- increase count of track appearing in
+				- or append it if not already present
+	- return the suggested tracks dict
+'''
 def parseSimTracks():
 	'''
 	opens sugtracks.json
@@ -190,10 +237,28 @@ def parseSimTracks():
 						exit()
 	return sugTracks
 
+'''
+getTopSongs
+
+Purpose: parses through passed in dict containing suggested songs and sorts them in descending order, based on number of times each song was suggested
+Arguments: source -> dict
+	(artist name, track name): count, artist name, track name
+'''
 def getTopSongs(source):
+	#creates a temp copy of the passed in dict
 	tmpDict= source.copy()
+	#used to store songs that have been suggested already
 	topDict={}
+
+	#opens output file called sugtracks.csv
+	'''
+	CSV format
+	-first line is headers
+	- following lines represent a suggested song
+		-artist , track, and count of times suggested
+	'''
 	with open("sugtracks.csv", "w", encoding="utf-8") as outfile:
+		#prints headers for csv file
 		outfile.write("Artist, Track, Count" + '\n')
 		while len(tmpDict) > len(topDict):
 			max = -1
@@ -210,7 +275,7 @@ def getTopSongs(source):
 			topDict[maxKey] = maxItems
 			artist, track = maxKey
 			outfile.write(artist + ", " + track + ", " + str(max) + '\n')
-		print(topDict)
+			print(artist + ", " + track + ", " + str(max))
 
 def makeRequest(params):
 	#wait a quarter of a second
@@ -240,20 +305,19 @@ def makeRequest(params):
 #############################################################
 #main code starts here
 
-parseCredentials()
-#ask if user wants to make a new request to API
-resp = input("Would you like to update the top tracks json file? y/n:  ")
+resp = input("Would you like to update the JSON files? y/n: ")
 if resp.lower() == 'y':
-	print("Making request.")
+	#check if credentyials file exists
+	if exists('credentials.txt') == False:
+		print("Credentials file not found. Starting process of creating credentials file.")
+		createCredentials()
+	parseCredentials()
+	print("Making requests.")
 	getUserTopSongs()
-	print("Request completed.")
 
-topTracks=parseTopTracks()
-resp= input("Would you like to update the similar tracks json file? y/n:	")
-if resp.lower() == 'y':
-	print("Making request.")
+	topTracks = parseTopTracks()
 	getSimilarSongs(topTracks)
-	print("Request completed.")
+	print("Requests completed.")
 
 sugTracks = parseSimTracks()
 #print(sugTracks)
