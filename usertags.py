@@ -15,6 +15,7 @@ mainParams= {
 	'period': 'overall'
 }
 
+headers={}
 #functions are defined here
 
 '''
@@ -41,6 +42,11 @@ def parseCredentials():
 			'user': line[0],
 			'api_key': line[1]
 			})
+		headers.update(
+			{
+				'user-agent': line[0]
+			}
+		)
 
 '''
 jrpint
@@ -280,9 +286,6 @@ def getTopSongs(source):
 def makeRequest(params):
 	#wait a quarter of a second
 	sleep(.25)
-	headers = {
-		'user-agent' : 'Chasezx3'
-	}
 
 	'''
 	Last.fm paramaters:
